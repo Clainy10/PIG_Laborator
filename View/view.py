@@ -111,7 +111,7 @@ class CadruPiatra(ctk.CTkFrame):
 class PiatraView(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Laboratorul 5 · Catalog de pietre · MVP")
+        self.title("Caroci hz ce sa sciu aici ...")
         self.geometry("1080x800")
         self.minsize(840, 650)
         self.configure(fg_color=Stil.FUNDAL)
@@ -129,7 +129,7 @@ class PiatraView(ctk.CTk):
         antet.grid(row=0, column=0, sticky="ew", padx=28, pady=(24, 8))
         antet.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
-            antet, text="LABORATORUL 5 / MODEL · VIEW · PRESENTER", text_color=Stil.SECUNDAR,
+            antet, text="Laborator 6", text_color=Stil.SECUNDAR,
         ).grid(row=0, column=0, sticky="w")
         ctk.CTkLabel(antet, text="Catalog de pietre", font=("Arial", 29, "bold")).grid(
             row=1, column=0, sticky="w", pady=(4, 0),
@@ -166,7 +166,7 @@ class PiatraView(ctk.CTk):
         tab_grafic.grid_rowconfigure(0, weight=1)
         self._grafic = CadruGrafic(tab_grafic)
         self._grafic.grid(row=0, column=0, sticky="nsew", padx=6, pady=8)
-        text = "Date demonstrative în memorie · Imagini reprezentative generate cu AI"
+        text = "By ME"
         if self._imagini.lipsa:
             text += " · Unele imagini nu au fost găsite"
         ctk.CTkLabel(self, text=text, text_color=Stil.SECUNDAR).grid(
