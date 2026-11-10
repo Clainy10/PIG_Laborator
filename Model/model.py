@@ -1,17 +1,15 @@
-"""Stocare, CRUD, sortare și calcule pentru grafice. Fără importuri grafice."""
+"""Stocare, CRUD, sortare și calcule folosind exclusiv DBManager ca intermediar."""
 
 from dataclasses import dataclass
 from statistics import fmean
-from typing import Iterable
 
 from Model.Class.baseclass import Piatra
 from Model.Class.clase_pietre import PiatraMagmatica, PiatraPretioasa, PiatraSedimentara
+from Model.DBManager import DatabaseManager
 
 
 @dataclass(frozen=True)
 class DatePiatra:
-    """Date simple pentru afișare; View nu primește entități modificabile."""
-
     id: str
     tip: str
     nume: str
@@ -45,89 +43,86 @@ class PiatraModel:
         "numar": ("Numărul de pietre pe clasă", "Număr de pietre"),
     }
 
-    def __init__(self, pietre: Iterable[Piatra] | None = None) -> None:
-        self._pietre: list[Piatra] = []
-        if pietre is None:
-            self._genereaza_date()
-        else:
-            self._pietre.extend(pietre)
-            identificatori = [piatra.get_id() for piatra in self._pietre]
-            if len(set(identificatori)) != len(identificatori):
-                raise ValueError("Colecția conține identificatori duplicați.")
-        if any(type(piatra) not in self.CLASE.values() for piatra in self._pietre):
-            raise ValueError("Colecția acceptă doar cele trei clase derivate de pietre.")
+    def __init__(self) -> None:
+        self.db = DatabaseManager()
+        if not self.db.obtine_toate():
+            self._genereaza_date_initiale()
 
-    def _genereaza_date(self) -> None:
-        for i in range(1, 11):
-            self._pietre.extend((
-                PiatraPretioasa(
-                    f"Diamant {i}", round(9.5 - i * 0.1, 2),
-                    round(3.5 + i * 0.01, 2), 1 + i * 0.5,
-                ),
-                PiatraMagmatica(
-                    f"Granit {i}", round(6 + i * 0.1, 2),
-                    round(2.6 + i * 0.02, 2), 1200 + i * 10,
-                ),
-                PiatraSedimentara(
-                    f"Calcar {i}", round(3 + i * 0.1, 2),
-                    round(2.3 + i * 0.01, 2), round(5 + i * 0.8, 2),
-                ),
-            ))
+    def _genereaza_date_initiale(self) -> None:
+        date_initiale = [
+            ("Pretioasa", "Diamant 1", 9.4, 3.51, 1.5),
+            ("Pretioasa", "Rubin 1", 9.0, 4.02, 2.0),
+            ("Magmatica", "Granit 1", 6.1, 2.65, 1210.0),
+            ("Magmatica", "Bazalt 1", 6.5, 2.90, 1150.0),
+            ("Sedimentara", "Calcar 1", 3.1, 2.31, 5.8),
+            ("Sedimentara", "Gresie 1", 6.0, 2.25, 7.2),
+        ]
+        for tip, nume, duritate, densitate, extra in date_initiale:
+            self.db.insereaza(tip, nume, duritate, densitate, extra)
+
+    def _instantiaza_obiect(self, r: dict) -> Piatra:
+        tip = r["tip"]
+        if tip not in self.CLASE:
+            raise ValueError(f"Tip de piatră necunoscut în baza de date: {tip}")
+        cls_piatra = self.CLASE[tip]
+        
+        # Apelăm constructorul trimițând valorile pozițional, exact cum sunt definite în clasele tale
+        return cls_piatra(
+            r["nume"],
+            r["duritate"],
+            r["densitate"],
+            r["extra"],
+            id_piatra=str(r["id"])
+        )
 
     def get_toate_pietrele(self) -> list[Piatra]:
-        """Returnează o copie a listei, păstrând interfața proiectului inițial."""
-        return self._pietre.copy()
-
-    def _gaseste_index(self, id_piatra: str) -> int:
-        for index, piatra in enumerate(self._pietre):
-            if piatra.get_id() == id_piatra:
-                return index
-        raise ValueError("Piatra nu mai există în catalog.")
+        randuri = self.db.obtine_toate()
+        return [self._instantiaza_obiect(r) for r in randuri]
 
     @staticmethod
     def _date_piatra(piatra: Piatra) -> DatePiatra:
         return DatePiatra(
-            id=piatra.get_id(), tip=piatra.TIP, nume=piatra.get_nume(),
-            duritate=piatra.get_duritate(), densitate=piatra.get_densitate(),
-            extra=piatra.get_extra(), eticheta_extra=piatra.ETICHETA_EXTRA,
+            id=piatra.get_id(),
+            tip=piatra.TIP,
+            nume=piatra.get_nume(),
+            duritate=piatra.get_duritate(),
+            densitate=piatra.get_densitate(),
+            extra=piatra.get_extra(),
+            eticheta_extra=piatra.ETICHETA_EXTRA,
             unitate_extra=piatra.UNITATE_EXTRA,
         )
 
     def get_date_lista(self) -> tuple[DatePiatra, ...]:
-        return tuple(self._date_piatra(piatra) for piatra in self._pietre)
+        pietre = self.get_toate_pietrele()
+        return tuple(self._date_piatra(p) for p in pietre)
 
     def get_date_piatra(self, id_piatra: str) -> DatePiatra:
-        return self._date_piatra(self._pietre[self._gaseste_index(id_piatra)])
-
-    @classmethod
-    def _creeaza_piatra(
-        cls, tip: str, nume: str, duritate: float | str, densitate: float | str, extra: float | str,
-        *, id_piatra: str | None = None,
-    ) -> Piatra:
-        if tip not in cls.CLASE:
-            raise ValueError("Tip de piatră necunoscut.")
-        return cls.CLASE[tip](nume, duritate, densitate, extra, id_piatra=id_piatra)
+        pietre = self.get_toate_pietrele()
+        for p in pietre:
+            if p.get_id() == id_piatra:
+                return self._date_piatra(p)
+        raise ValueError("Piatra nu există în baza de date.")
 
     def adauga_piatra(
         self, tip: str, nume: str, duritate: float | str, densitate: float | str, extra: float | str,
     ) -> None:
-        self._pietre.append(self._creeaza_piatra(tip, nume, duritate, densitate, extra))
+        if tip not in self.CLASE:
+            raise ValueError("Tip de piatră necunoscut.")
+        self.db.insereaza(tip, nume, float(duritate), float(densitate), float(extra))
 
     def editeaza_piatra(
         self, id_piatra: str, tip: str, nume: str,
         duritate: float | str, densitate: float | str, extra: float | str,
     ) -> None:
-        index = self._gaseste_index(id_piatra)
-        # Construirea completă precede înlocuirea: datele invalide nu lasă editări parțiale.
-        piatra = self._creeaza_piatra(
-            tip, nume, duritate, densitate, extra, id_piatra=id_piatra,
-        )
-        self._pietre[index] = piatra
+        if tip not in self.CLASE:
+            raise ValueError("Tip de piatră necunoscut.")
+        self.db.actualizeaza(id_piatra, tip, nume, float(duritate), float(densitate), float(extra))
 
     def sterge_piatra(self, id_piatra: str) -> None:
-        self._pietre.pop(self._gaseste_index(id_piatra))
+        self.db.sterge(id_piatra)
 
-    def sorteaza_dupa(self, atribut: str, descrescator: bool = False) -> None:
+    def sorteaza_dupa(self, atribut: str, descrescator: bool = False) -> list[Piatra]:
+        pietre = self.get_toate_pietrele()
         chei = {
             "nume": lambda piatra: piatra.get_nume().casefold(),
             "duritate": lambda piatra: piatra.get_duritate(),
@@ -135,20 +130,23 @@ class PiatraModel:
         }
         if atribut not in chei:
             raise ValueError("Criteriu de sortare necunoscut.")
-        self._pietre.sort(key=chei[atribut], reverse=descrescator)
+        pietre.sort(key=chei[atribut], reverse=descrescator)
+        return pietre
 
     def get_date_grafic(self, criteriu: str = "duritate") -> DateGrafic:
         if criteriu not in self.CRITERII_GRAFIC:
             raise ValueError("Criteriu de grafic necunoscut.")
+        
+        pietre = self.get_toate_pietrele()
         grupuri: dict[str, list[Piatra]] = {tip: [] for tip in self.CLASE}
-        for piatra in self._pietre:
+        for piatra in pietre:
             grupuri[piatra.TIP].append(piatra)
+            
         numere = tuple(len(grup) for grup in grupuri.values())
         if criteriu == "numar":
             valori = tuple(float(numar) for numar in numere)
         else:
             metoda = Piatra.get_duritate if criteriu == "duritate" else Piatra.get_densitate
-            # None înseamnă lipsa observațiilor; media unei clase goale nu este zero.
             valori = tuple(
                 fmean(metoda(piatra) for piatra in grup) if grup else None
                 for grup in grupuri.values()
@@ -158,12 +156,13 @@ class PiatraModel:
 
     def afiseaza_sortari_terminal(self) -> None:
         """Demonstrația LL1, fără a modifica ordinea curentă a catalogului."""
-        copie = self._pietre.copy()
+        pietre = self.get_toate_pietrele()
+        copie = pietre.copy()
         try:
             for atribut in ("nume", "duritate", "densitate"):
-                self.sorteaza_dupa(atribut)
+                pietre_sortate = self.sorteaza_dupa(atribut)
                 print(f"\nSortare după {atribut}:")
-                for piatra in self._pietre:
+                for piatra in pietre_sortate:
                     print(piatra)
         finally:
-            self._pietre = copie
+            pass
