@@ -41,9 +41,9 @@ class PiatraPresenter:
         self.reimprospateaza_ui()
 
     def reimprospateaza_ui(self) -> None:
-        if self._atribut_sortare is not None:
-            self.model.sorteaza_dupa(self._atribut_sortare, self._descrescator)
-        self.view.afiseaza_elemente_in_cadre(self.model.get_date_lista())
+        self.view.afiseaza_elemente_in_cadre(
+            self.model.get_date_lista(self._atribut_sortare, self._descrescator)
+        )
         self.view.actualizeaza_sortare(self._atribut_sortare, self._descrescator)
         self.view.afiseaza_grafic(self.model.get_date_grafic(self._criteriu_grafic))
 

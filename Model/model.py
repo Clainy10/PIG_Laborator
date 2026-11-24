@@ -92,8 +92,13 @@ class PiatraModel:
             unitate_extra=piatra.UNITATE_EXTRA,
         )
 
-    def get_date_lista(self) -> tuple[DatePiatra, ...]:
-        pietre = self.get_toate_pietrele()
+    def get_date_lista(
+        self, atribut_sortare: str | None = None, descrescator: bool = False,
+    ) -> tuple[DatePiatra, ...]:
+        if atribut_sortare is None:
+            pietre = self.get_toate_pietrele()
+        else:
+            pietre = self.sorteaza_dupa(atribut_sortare, descrescator)
         return tuple(self._date_piatra(p) for p in pietre)
 
     def get_date_piatra(self, id_piatra: str) -> DatePiatra:
